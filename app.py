@@ -63,10 +63,11 @@ def search():
         for line in f:
             entry = json.loads(line)
             fields = [
-                entry.get("title", ""),
-                entry.get("keywords", ""),
-                entry.get("transcript", "")
+   				 entry.get("title") or "",
+    			 entry.get("keywords") or "",
+    			 entry.get("transcript") or ""
             ]
+
             weights = [3, 2, 1]
             score = score_content(fields, weights, keywords)
             if score > 0:
@@ -110,9 +111,10 @@ def get_question():
         }), 404
 
     return jsonify({"matches": results})
+
 if __name__ == "__main__":
     import logging
     log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+#    log.setLevel(logging.ERROR)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=True)
