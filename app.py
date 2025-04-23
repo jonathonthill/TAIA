@@ -9,7 +9,7 @@ def search():
     data = request.json
     keywords = data.get("keywords", [])
     slides_path = "all_slides.jsonl"
-    videos_path = "YouTube_Transcript.jsonl"
+    videos_path = "all_videos.jsonl"
 
     slide_matches = []
     video_matches = []
