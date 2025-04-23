@@ -47,6 +47,35 @@ def search():
         "SlideMatches": slide_results,
         "VideoMatches": video_matches
     })
+    
+@app.route("/get_question", methods=["POST"])
+def get_question():
+    data = request.json
+    question_number = data.get("question_number")
+    assignment = data.get("assignment")
+    assignment_file = "all_reviews_parsed.jsonl"
+
+    if not question_number or not assignment:
+        return jsonify({"error": "Missing question_number or assignment"}), 400
+
+    results = []
+
+    with open(assignment_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            entry = json.loads(line)
+            if (
+                entry.get("question_number") == question_number
+                and entry.get("topic", "").lower() == assignment.lower()
+            ):
+                results.append(entry)
+
+    if not results:
+        return jsonify({
+            "error": f"No match for assignment: {assignment}, question_number: {question_number}"
+        }), 404
+
+    return jsonify({"matches": results})
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))  # default for local testing
