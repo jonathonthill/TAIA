@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 import json
+import os
 from collections import defaultdict
 
 app = Flask(__name__)
@@ -48,5 +49,5 @@ def search():
     })
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
-
+    port = int(os.environ.get("PORT", 5000))  # default for local testing
+    app.run(host="0.0.0.0", port=port, debug=False)
