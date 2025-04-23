@@ -17,7 +17,6 @@ def search():
     # Score helper
     def score_content(fields, weights, keywords):
         score = 0
-        content = " ".join(fields).lower()
         for keyword in keywords:
             keyword = keyword.lower()
             for field, weight in zip(fields, weights):
@@ -30,32 +29,36 @@ def search():
         for line in f:
             slide = json.loads(line)
             fields = [
-                slide.get("slide_title", ""),
-                slide.get("presenter_notes", ""),
-                slide.get("slide_text", "")
+                str(slide.get("slide_title") or ""),
+                str(slide.get("presenter_notes") or ""),
+                str(slide.get("slide_text") or "")
             ]
             weights = [3, 2, 1]
             score = score_content(fields, weights, keywords)
             if score > 0:
                 slide_matches.append({
-                    "Lecture": slide["lecture"],
-                    "Slide": slide["slide_number"],
+                    "Lecture": slide.get("lecture"),
+                    "Slide": slide.get("slide_number"),
                     "Title": slide.get("slide_title"),
                     "Score": score
                 })
 
-    # Collapse to ranges per lecture
+    # Collapse to ranges per lecture and include total score
     from collections import defaultdict
 
     grouped_slides = defaultdict(list)
+    score_by_lecture = defaultdict(int)
+
     for match in slide_matches:
         grouped_slides[match["Lecture"]].append(match["Slide"])
+        score_by_lecture[match["Lecture"]] += match["Score"]
 
     slide_results = []
     for lecture, slides in grouped_slides.items():
         slide_results.append({
             "Lecture": lecture,
-            "SlideRange": [min(slides), max(slides)]
+            "SlideRange": [min(slides), max(slides)],
+            "Score": score_by_lecture[lecture]
         })
 
     # Search videos
@@ -63,11 +66,10 @@ def search():
         for line in f:
             entry = json.loads(line)
             fields = [
-   				 entry.get("title") or "",
-    			 entry.get("keywords") or "",
-    			 entry.get("transcript") or ""
+                str(entry.get("title") or ""),
+                " ".join(entry.get("keywords") or []) if isinstance(entry.get("keywords"), list) else str(entry.get("keywords") or ""),
+                str(entry.get("transcript") or "")
             ]
-
             weights = [3, 2, 1]
             score = score_content(fields, weights, keywords)
             if score > 0:
@@ -81,7 +83,7 @@ def search():
 
     return jsonify({
         "SlideMatches": slide_results,
-        "VideoMatches": video_matches[:3]  # top 3
+        "VideoMatches": video_matches[:3]
     })
 
 @app.route("/get_question", methods=["POST"])
@@ -115,6 +117,6 @@ def get_question():
 if __name__ == "__main__":
     import logging
     log = logging.getLogger('werkzeug')
-#    log.setLevel(logging.ERROR)
+    # log.setLevel(logging.ERROR)
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=True)
