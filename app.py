@@ -9,7 +9,7 @@ def search():
     data = request.json
     keywords = data.get("keywords", [])
     slides_path = "all_slides.jsonl"
-    videos_path = "YouTube_Transcript_Index_With_Text.jsonl"
+    videos_path = "YouTube_Transcript.jsonl"
 
     slide_matches = []
     video_matches = []
@@ -88,7 +88,7 @@ def get_question():
     data = request.json
     question_number = data.get("question_number")
     assignment = data.get("assignment")
-    assignment_file = "all_reviews_parsed.jsonl"
+    assignment_file = "all_assignments.jsonl"
 
     if not question_number or not assignment:
         return jsonify({"error": "Missing question_number or assignment"}), 400
@@ -100,7 +100,7 @@ def get_question():
             entry = json.loads(line)
             if (
                 entry.get("question_number") == question_number
-                and entry.get("topic", "").lower() == assignment.lower()
+                and entry.get("assignment", "").lower() == assignment.lower()
             ):
                 results.append(entry)
 
@@ -110,7 +110,6 @@ def get_question():
         }), 404
 
     return jsonify({"matches": results})
-
 if __name__ == "__main__":
     import logging
     log = logging.getLogger('werkzeug')
