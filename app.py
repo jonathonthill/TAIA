@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 @app.route("/search", methods=["POST"])
 def search():
-    data = request.json
+    data = request.get_json()
     keywords = data.get("keywords", [])
     slides_path = "all_slides.jsonl"
     videos_path = "all_videos.jsonl"
