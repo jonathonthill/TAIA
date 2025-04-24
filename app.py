@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify
 import json
 import os
@@ -40,10 +39,10 @@ def search():
                 video["score"] = score
                 video_matches.append(video)
 
-    return jsonify({{
+    return jsonify({
         "slide_matches": sorted(slide_matches, key=lambda x: x["score"], reverse=True),
         "video_matches": sorted(video_matches, key=lambda x: x["score"], reverse=True)
-    }})
+    })
 
 
 @app.route('/get_question', methods=['POST'])
@@ -77,7 +76,7 @@ def get_question():
             if int(q_num) == requested_q:
                 return jsonify(q)
 
-    return jsonify({{"error": "Question not found"}}), 404
+    return jsonify({"error": "Question not found"}), 404
 
 
 if __name__ == "__main__":
