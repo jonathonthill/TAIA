@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify
 import json
 import os
@@ -14,7 +15,6 @@ def search():
     slide_matches = []
     video_matches = []
 
-    # Score helper
     def score_content(fields, weights, keywords):
         score = 0
         for keyword in keywords:
@@ -24,95 +24,61 @@ def search():
                     score += weight
         return score
 
-    # Search slides
     with open(slides_path, 'r', encoding='utf-8') as f:
         for line in f:
             slide = json.loads(line)
-            fields = [
-                str(slide.get("slide_title") or ""),
-                str(slide.get("presenter_notes") or ""),
-                str(slide.get("slide_text") or "")
-            ]
-            weights = [3, 2, 1]
-            score = score_content(fields, weights, keywords)
+            score = score_content([slide.get("slide_text", ""), slide.get("presenter_notes", "")], [1, 2], keywords)
             if score > 0:
-                slide_matches.append({
-                    "Lecture": slide.get("lecture"),
-                    "Slide": slide.get("slide_number"),
-                    "Title": slide.get("slide_title"),
-                    "Score": score
-                })
+                slide["score"] = score
+                slide_matches.append(slide)
 
-    # Collapse to ranges per lecture and include total score
-    from collections import defaultdict
-
-    grouped_slides = defaultdict(list)
-    score_by_lecture = defaultdict(int)
-
-    for match in slide_matches:
-        grouped_slides[match["Lecture"]].append(match["Slide"])
-        score_by_lecture[match["Lecture"]] += match["Score"]
-
-    slide_results = []
-    for lecture, slides in grouped_slides.items():
-        slide_results.append({
-            "Lecture": lecture,
-            "SlideRange": [min(slides), max(slides)],
-            "Score": score_by_lecture[lecture]
-        })
-
-    # Search videos
     with open(videos_path, 'r', encoding='utf-8') as f:
         for line in f:
-            entry = json.loads(line)
-            fields = [
-                str(entry.get("title") or ""),
-                " ".join(entry.get("keywords") or []) if isinstance(entry.get("keywords"), list) else str(entry.get("keywords") or ""),
-                str(entry.get("transcript") or "")
-            ]
-            weights = [3, 2, 1]
-            score = score_content(fields, weights, keywords)
+            video = json.loads(line)
+            score = score_content([video.get("transcript", "")], [2], keywords)
             if score > 0:
-                video_matches.append({
-                    "Title": entry.get("title"),
-                    "URL": entry.get("url"),
-                    "Score": score
-                })
+                video["score"] = score
+                video_matches.append(video)
 
-    video_matches.sort(key=lambda x: -x["Score"])
+    return jsonify({{
+        "slide_matches": sorted(slide_matches, key=lambda x: x["score"], reverse=True),
+        "video_matches": sorted(video_matches, key=lambda x: x["score"], reverse=True)
+    }})
 
-    return jsonify({
-        "SlideMatches": slide_results,
-        "VideoMatches": video_matches[:3]
-    })
 
-@app.route("/get_question", methods=["POST"])
+@app.route('/get_question', methods=['POST'])
 def get_question():
-    data = request.json
-    question_number = data.get("question_number")
+    data = request.get_json()
     assignment = data.get("assignment")
-    assignment_file = "all_assignments.jsonl"
+    question_number = data.get("question_number")
 
-    if not question_number or not assignment:
-        return jsonify({"error": "Missing question_number or assignment"}), 400
+    try:
+        requested_q = int(question_number)
+    except:
+        return jsonify({{"error": "Invalid question number format"}}), 400
 
-    results = []
+    with open("all_assignments.jsonl", "r") as f:
+        questions = [json.loads(line) for line in f]
 
-    with open(assignment_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            entry = json.loads(line)
-            if (
-                entry.get("question_number") == question_number
-                and entry.get("assignment", "").lower() == assignment.lower()
-            ):
-                results.append(entry)
+    filtered = [q for q in questions if q.get("assignment") == assignment]
 
-    if not results:
-        return jsonify({
-            "error": f"No match for assignment: {assignment}, question_number: {question_number}"
-        }), 404
+    for q in filtered:
+        q_num = q.get("question_number")
+        if "-" in q_num:
+            start, end = map(int, q_num.split("-"))
+            if start <= requested_q <= end:
+                q["requested_sub_question"] = requested_q
+                if q.get("type") == "matching":
+                    sub_index = requested_q - start
+                    if sub_index < len(q["matches"]):
+                        q["highlighted_pair"] = q["matches"][sub_index]
+                return jsonify(q)
+        else:
+            if int(q_num) == requested_q:
+                return jsonify(q)
 
-    return jsonify({"matches": results})
+    return jsonify({{"error": "Question not found"}}), 404
+
 
 if __name__ == "__main__":
     import logging
