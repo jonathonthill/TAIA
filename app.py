@@ -90,6 +90,9 @@ def lookup_key():
     lookup_value = lookup_value.lower().strip()
 
     matches = []
+    
+    with open("Lecture_Review_Exam_Key.jsonl", "r") as f:
+      key_data = [json.loads(line) for line in f]
 
     for entry in key_data:
         if lookup_type == "lecture":
