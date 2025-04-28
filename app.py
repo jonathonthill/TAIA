@@ -126,7 +126,7 @@ def get_lecture():
     except FileNotFoundError:
         return jsonify({"error": "Slides database not found."}), 500
 
-    matches = [slide for slide in slides_data if slide.get("Lecture", "").lower() == lecture.lower()]
+    matches = [slide for slide in slides_data if slide.get("lecture", "").lower() == lecture.lower()]
 
     if not matches:
         return jsonify({"error": f"No slides found for {lecture}."}), 404
