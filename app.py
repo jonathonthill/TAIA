@@ -110,6 +110,28 @@ def lookup_key():
         return jsonify({"error": "No matching data found."}), 404
 
     return jsonify({"matches": matches})
+    
+@app.route("/get_lecture", methods=["POST"])
+def get_lecture():
+    data = request.get_json()
+    lecture = data.get("lecture")  # Expects single lecture like "Lecture3"
+
+    if not lecture:
+        return jsonify({"error": "lecture is required."}), 400
+
+    try:
+        # Load your slides database
+        with open("all_slides.jsonl", "r") as f:
+            slides_data = [json.loads(line) for line in f]
+    except FileNotFoundError:
+        return jsonify({"error": "Slides database not found."}), 500
+
+    matches = [slide for slide in slides_data if slide.get("Lecture", "").lower() == lecture.lower()]
+
+    if not matches:
+        return jsonify({"error": f"No slides found for {lecture}."}), 404
+
+    return jsonify({"slides": matches})
 
 if __name__ == "__main__":
     import logging
