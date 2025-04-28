@@ -78,6 +78,35 @@ def get_question():
 
     return jsonify({"error": "Question not found"}), 404
 
+@app.route("/lookup_key", methods=["POST"])
+def lookup_key():
+    data = request.get_json()
+    lookup_type = data.get("lookup_type")
+    lookup_value = data.get("lookup_value")
+
+    if not lookup_type or not lookup_value:
+        return jsonify({"error": "lookup_type and lookup_value are required"}), 400
+
+    lookup_value = lookup_value.lower().strip()
+
+    matches = []
+
+    for entry in key_data:
+        if lookup_type == "lecture":
+            for lecture in entry.get("lectures", []):
+                if lookup_value == lecture.lower():
+                    matches.append(entry)
+        elif lookup_type == "review":
+            if lookup_value == entry.get("review", "").lower():
+                matches.append(entry)
+        elif lookup_type == "midterm":
+            if lookup_value == entry.get("exam", "").lower():
+                matches.append(entry)
+
+    if not matches:
+        return jsonify({"error": "No matching data found."}), 404
+
+    return jsonify({"matches": matches})
 
 if __name__ == "__main__":
     import logging
