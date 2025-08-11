@@ -4,6 +4,44 @@ import os
 
 app = Flask(__name__)
 
+# --- helpers for lookup_key ---
+
+import re
+
+LOOKUP_FILE = os.environ.get("LOOKUP_FILE", "Lecture_Review_Exam_Key.jsonl")  # set via env if needed
+
+def _normalize_lecture_token(x):
+    """
+    Normalize various lecture representations:
+    - 5, "5", "05", "Lecture5", "lecture 05" -> "5"
+    - "2b", "Lecture 2b" -> "2b"
+    Always returns a lowercase string token or None.
+    """
+    if x is None:
+        return None
+    s = str(x).strip().lower()
+    # remove optional leading 'lecture'
+    s = re.sub(r'^\s*lecture\s*', '', s)
+    # strip any leading zeros if it starts with digits
+    if re.match(r'^\d', s):
+        s = re.sub(r'^0+', '', s) or '0'
+    return s
+
+def _load_lookup_rows(path=LOOKUP_FILE):
+    """
+    Read a JSON Lines file where each line is an object like:
+      {"lectures":[2,3,4,5],"review_quiz":"Review1","exam":"Midterm1"}
+    Returns a list of dicts.
+    """
+    rows = []
+    with open(path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            rows.append(json.loads(line))
+    return rows
+
 @app.route("/search", methods=["POST"])
 def search():
     data = request.get_json()
@@ -80,37 +118,37 @@ def get_question():
 
 @app.route("/lookup_key", methods=["POST"])
 def lookup_key():
-    data = request.get_json()
-    lookup_type = data.get("lookup_type")
-    lookup_value = data.get("lookup_value")
+    data = request.get_json(force=True) or {}
+    lookup_type = (data.get("lookup_type") or "").strip().lower()
+    lookup_value_raw = data.get("lookup_value")
 
-    if not lookup_type or not lookup_value:
-        return jsonify({"error": "lookup_type and lookup_value are required"}), 400
+    if lookup_type != "lecture":
+        return jsonify({"error": "Unsupported lookup_type. Use 'lecture'."}), 400
 
-    lookup_value = lookup_value.lower().strip()
+    target = _normalize_lecture_token(lookup_value_raw)
+    if not target:
+        return jsonify({"error": "Invalid lookup_value for lecture. Examples: 'Lecture5', '5', '2b'."}), 400
 
-    matches = []
-    
-    with open("Lecture_Review_Exam_Key.jsonl", "r") as f:
-      key_data = [json.loads(line) for line in f]
+    try:
+        rows = _load_lookup_rows()
+    except FileNotFoundError:
+        return jsonify({"error": f"Lookup file not found: {LOOKUP_FILE}"}), 500
+    except json.JSONDecodeError as e:
+        return jsonify({"error": f"Lookup file parse error: {e}"}), 500
 
-    for entry in key_data:
-        if lookup_type == "lecture":
-            for lecture in entry.get("lectures", []):
-                if lookup_value == lecture.lower():
-                    matches.append(entry)
-        elif lookup_type == "review":
-            if lookup_value == entry.get("review", "").lower():
-                matches.append(entry)
-        elif lookup_type == "midterm":
-            if lookup_value == entry.get("exam", "").lower():
-                matches.append(entry)
+    for row in rows:
+        lectures = row.get("lectures", [])
+        # Ensure it's iterable
+        if not isinstance(lectures, (list, tuple)):
+            lectures = [lectures]
 
-    if not matches:
-        return jsonify({"error": "No matching data found."}), 404
+        for lec in lectures:
+            if _normalize_lecture_token(lec) == target:
+                # Found a match — return the whole row
+                return jsonify(row)
 
-    return jsonify({"matches": matches})
-    
+    return jsonify({"error": "Lecture not found"}), 404
+        
 @app.route("/get_lecture", methods=["POST"])
 def get_lecture():
     data = request.get_json()
